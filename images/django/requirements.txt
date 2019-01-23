@@ -1,5 +1,5 @@
 mysqlclient
 django
 python-memcached
-rq
+django-rq
 redis

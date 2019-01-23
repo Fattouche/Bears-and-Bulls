@@ -5,28 +5,21 @@ class Stock(models.Model):
     symbol = models.CharField(max_length=3, primary_key=True)
     price = models.DecimalField(max_digits=65, decimal_places=2, default=0)
 
-    def verify_triggers(self, increased):
-        # Only need to check sell
-        if(increased):
-            sell_trigger = SellTrigger.objects.filter(
-                stock_symbol=self.symbol)
-            for trigger in sell_trigger:
-                if(trigger.price <= self.price):
-                    user = User.objects.get(user_id=trigger.user_id)
-                    user.update_balance(self.price*trigger.stock_amount)
-                    trigger.committed = True
-                    trigger.save()
-        else:
-            buy_trigger = BuyTrigger.objects.filter(
-                stock_symbol=self.symbol, trigger_type="buy")
-            for trigger in buy_trigger:
-                if(trigger.price >= self.price):
-                    user_stock = UserStock.objects.get(
-                        user_id=trigger.user_id, stock_symbol=self.symbol)
-                    user_stock.update_amount(
-                        trigger.cash_amount//self.price)
-                    trigger.committed = True
-                    trigger.save()
+    def check_sell_trigger(self):
+        sell_trigger = SellTrigger.objects.filter(
+            stock_symbol=self.symbol)
+        for trigger in sell_trigger:
+            trigger.check_validity(self.price)
+
+    def check_buy_trigger(self):
+        buy_trigger = BuyTrigger.objects.filter(
+            stock_symbol=self.symbol)
+        for trigger in buy_trigger:
+            trigger.check_validity(self.price, self.symbol)
+
+    def verify_triggers(self):
+        self.check_sell_trigger()
+        self.check_buy_trigger()
 
 
 class User(models.Model):
@@ -54,22 +47,41 @@ class SellTrigger(models.Model):
     user_id = models.ForeignKey(User, on_delete=models.CASCADE)
     stock_symbol = models.ForeignKey(Stock, on_delete=models.CASCADE)
     price = models.DecimalField(max_digits=65, decimal_places=2, default=0)
-    stock_amount = models.DecimalField(max_digits=65, decimal_places=2, default=0)
+    stock_amount = models.DecimalField(
+        max_digits=65, decimal_places=2, default=0)
     committed = models.BooleanField(default=False)
+
+    def check_validity(self, price):
+        if(self.price <= price):
+            user = User.objects.get(user_id=trigger.user_id)
+            user.update_balance(price*self.stock_amount)
+            self.committed = True
+            self.save()
 
 
 class BuyTrigger(models.Model):
     user_id = models.ForeignKey(User, on_delete=models.CASCADE)
     stock_symbol = models.ForeignKey(Stock, on_delete=models.CASCADE)
     price = models.DecimalField(max_digits=65, decimal_places=2, default=0)
-    cash_amount = models.DecimalField(max_digits=65, decimal_places=2, default=0)
+    cash_amount = models.DecimalField(
+        max_digits=65, decimal_places=2, default=0)
     committed = models.BooleanField(default=False)
+
+    def check_validity(self, price, symbol):
+        if(self.price >= price):
+            user_stock = UserStock.objects.get(
+                user_id=self.user_id, stock_symbol=symbol)
+            user_stock.update_amount(
+                self.cash_amount//price)
+            self.committed = True
+            self.save()
 
 
 class Sell(models.Model):
     user_id = models.ForeignKey(User, on_delete=models.CASCADE)
     stock_symbol = models.ForeignKey(Stock, on_delete=models.CASCADE)
-    cash_amount = models.DecimalField(max_digits=65, decimal_places=2, default=0)
+    cash_amount = models.DecimalField(
+        max_digits=65, decimal_places=2, default=0)
     stock_sold_amount = models.PositiveIntegerField(default=0)
     committed = models.BooleanField(default=False)
 
@@ -77,5 +89,6 @@ class Sell(models.Model):
 class Buy(models.Model):
     user_id = models.ForeignKey(User, on_delete=models.CASCADE)
     stock_symbol = models.ForeignKey(Stock, on_delete=models.CASCADE)
-    cash_amount = models.DecimalField(max_digits=65, decimal_places=2, default=0)
+    cash_amount = models.DecimalField(
+        max_digits=65, decimal_places=2, default=0)
     committed = models.BooleanField(default=False)

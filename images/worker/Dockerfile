@@ -7,8 +7,5 @@ COPY ./worker/requirements.txt .
 RUN pip install --upgrade pip
 RUN pip install -r requirements.txt
 
-COPY ./worker .
-COPY ./wait-for-it.sh .
-
-ENTRYPOINT ["bash", "./entrypoint.sh"]
+ENTRYPOINT ["bash", "./images/worker/entrypoint.sh"]
 

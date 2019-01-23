@@ -2,6 +2,10 @@ from django.shortcuts import render
 
 from django.http import HttpResponse
 
+import django_rq
+
+from .models import *
+
 
 def index(request):
     return HttpResponse("Init view of stock exchange index")
@@ -12,7 +16,18 @@ def add(request):
 
 
 def quote(request):
-    return HttpResponse("Init view of stock exchange index")
+    # placeholders
+    symbol = "abc"
+    user_id = "1234"
+    stock = cache.get(symbol)
+    if(stock is None):
+        price = execute_request(
+            user_id=user_id, symbol=symbol, command="QUOTE")
+        stock = Stock(symbol=symbol, price=price)
+        cache.set(symbol, stock)
+        django_rq.enqueue(stock.verify_triggers)
+
+    return HttpResponse("stock: "+symbol)
 
 
 def buy(request):

@@ -41,9 +41,10 @@ services:
       - '6379:6379'
   worker:
     container_name: day_trader_worker
+    volumes:
+    - .:/service/
     build:
       context: ./images
       dockerfile: ./worker/Dockerfile
-    command: rq worker -c settings
 
 version: '3.6'
