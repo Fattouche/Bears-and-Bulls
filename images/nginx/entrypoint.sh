@@ -1,6 +1,6 @@
 #!/bin/bash
 
-cd /service/images/
+cd /service/images/nginx
 
 bash ./wait-for-it.sh day_trader_web:41000 --timeout=300
 
