@@ -1,7 +1,6 @@
 FROM python
 
 RUN mkdir /startup
-
 WORKDIR /startup
 
 COPY ./requirements.txt .
