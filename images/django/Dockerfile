@@ -1,10 +1,12 @@
 FROM python
 
-RUN mkdir /service
-WORKDIR /service
+RUN mkdir /startup
+COPY . /startup
+WORKDIR /startup
 
-COPY ./requirements.txt .
 RUN pip install --upgrade pip
-RUN pip install -r requirements.txt
+RUN pip install -r /startup/requirements.txt
 
-ENTRYPOINT ["bash", "./images/django/entrypoint.sh"]
+WORKDIR /day_trader
+
+ENTRYPOINT ["bash", "/startup/entrypoint.sh"]

@@ -1,30 +1,29 @@
 services:
   web:
-    command: python ./day_trader/manage.py runserver 0:41000
+    command: gunicorn day_trader.wsgi -b 0:41000
     container_name: day_trader_web
     environment:
      PYTHONUNBUFFERED: 1
     build:
       context: ./images/django
-      dockerfile: ./Dockerfile
     ports:
     - '41000'
     volumes:
-    - .:/service/
+    - ./day_trader:/day_trader
   cache:
     container_name: day_trader_cache
     image: memcached
     ports:
     - '11211:11211'
   db:
+    image: mysql:5.7
     container_name: day_trader_db
     environment:
       MYSQL_DATABASE: day_trader_db
       MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
-    image: mysql:5.7
     ports:
     - '3306:3306'
-  lb: 
+  lb:
     image: nginx
     command: /service/images/nginx/entrypoint.sh
     container_name: day_trader_lb
@@ -44,7 +43,6 @@ services:
     volumes:
     - .:/service/
     build:
-      context: ./images
-      dockerfile: ./worker/Dockerfile
+      context: ./images/worker
 
 version: '3.6'
