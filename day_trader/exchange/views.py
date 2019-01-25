@@ -6,19 +6,28 @@ import django_rq
 
 from .models import *
 
+from decimal import Decimal
+
 
 def index(request):
     return HttpResponse("Init view of stock exchange index")
 
 
 def add(request):
-    return HttpResponse("Init view of stock exchange index")
+    params = request.POST
+    user_id = params.get('user_id')
+    amount = params.get('amount')
+    user = User.objects.get(user_id=user_id)
+    user.balance += Decimal(amount)
+    user.save()
+    return HttpResponse("New balance {0}".format(user.balance), status=200)
 
 
 def quote(request):
     # placeholders
-    symbol = "abc"
-    user_id = "1234"
+    params = request.GET
+    user_id = params.get('user_id')
+    symbol = params.get('symbol')
     stock = cache.get(symbol)
     if(stock is None):
         price = execute_request(

@@ -7,13 +7,13 @@ class Stock(models.Model):
 
     def check_sell_trigger(self):
         sell_trigger = SellTrigger.objects.filter(
-            stock_symbol=self.symbol)
+            stock_symbol=self.symbol, committed=False)
         for trigger in sell_trigger:
             trigger.check_validity(self.price)
 
     def check_buy_trigger(self):
         buy_trigger = BuyTrigger.objects.filter(
-            stock_symbol=self.symbol)
+            stock_symbol=self.symbol, committed=False)
         for trigger in buy_trigger:
             trigger.check_validity(self.price, self.symbol)
 
@@ -54,6 +54,9 @@ class SellTrigger(models.Model):
     def check_validity(self, price):
         if(self.price <= price):
             user = User.objects.get(user_id=trigger.user_id)
+            execute_request(user_id=user.user_id, symbol=trigger.symbol, amount=math.floor(
+                price*self.stock_amount), command="SELL")
+            execute_request(user_id=user.user_id, command="COMMIT_SELL")
             user.update_balance(price*self.stock_amount)
             self.committed = True
             self.save()
@@ -71,8 +74,11 @@ class BuyTrigger(models.Model):
         if(self.price >= price):
             user_stock = UserStock.objects.get(
                 user_id=self.user_id, stock_symbol=symbol)
-            user_stock.update_amount(
-                self.cash_amount//price)
+            num_stocks_purchased = cash_amount//self.price
+            execute_request(user_id=user.user_id, symbol=trigger.symbol,
+                            amount=cash_amount, command="BUY")
+            execute_request(user_id=user.user_id, command="COMMIT_BUY")
+            user_stock.update_amount(num_stocks_purchased)
             self.committed = True
             self.save()
 
