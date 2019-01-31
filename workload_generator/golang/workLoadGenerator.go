@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -38,6 +40,7 @@ var amountCommands = map[string]int{
 var userMap = make(map[string][]*http.Request)
 var wg sync.WaitGroup
 var baseURL string
+var client = &http.Client{}
 
 func parseCommands(filename string) {
 	file, err := os.Open(filename)
@@ -119,13 +122,13 @@ func generateRequest(userID string, commands []string) *http.Request {
 }
 
 func makeRequest(requests []*http.Request) {
-	client := &http.Client{}
 	for _, req := range requests {
 		resp, err := client.Do(req)
 		if err != nil {
 			log.Println("ERROR: ", err)
 		}
-		log.Println(resp)
+		io.Copy(ioutil.Discard, resp.Body)
+		resp.Body.Close()
 	}
 	wg.Done()
 }

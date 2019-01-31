@@ -1,7 +1,7 @@
 version: '3.6'
 services:
   generator:
-    command: go run /service/workLoadGenerator.go -f="/service/workload_files/1userWorkLoad"
+    command: go run /service/workLoadGenerator.go -f="/service/workload_files/userWorkLoad"
     container_name: generator
     image: golang
     volumes:

@@ -1,6 +1,6 @@
 services:
   web:
-    command: gunicorn day_trader.wsgi -b 0:41000 --reload
+    command: gunicorn day_trader.wsgi -b 0:41000 --workers=4 --keep-alive=10 --reload
     container_name: day_trader_web
     environment:
      PYTHONUNBUFFERED: 1
