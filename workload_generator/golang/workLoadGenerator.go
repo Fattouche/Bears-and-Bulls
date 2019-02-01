@@ -37,6 +37,7 @@ var amountCommands = map[string]int{
 	"SET_SELL_AMOUNT":  1,
 	"SET_SELL_TRIGGER": 1,
 }
+var dumpCommand *http.Request
 var userMap = make(map[string][]*http.Request)
 var wg sync.WaitGroup
 var baseURL string
@@ -55,7 +56,12 @@ func parseCommands(filename string) {
 		totalCommand := strings.Split(scanner.Text(), " ")
 		userCommands := strings.Split(totalCommand[1], ",")
 		if userCommands[0] == "DUMPLOG" && len(userCommands) == 2 {
-			userID = ""
+			dumpCommand, _ = http.NewRequest("GET", baseURL+strings.ToLower(userCommands[0]), nil)
+			q := dumpCommand.URL.Query()
+			fileName := userCommands[1]
+			q.Add("filename", fileName)
+			dumpCommand.URL.RawQuery = q.Encode()
+			continue
 		} else {
 			userID = userCommands[1]
 		}
@@ -125,6 +131,8 @@ func generateRequest(userID string, commands []string) *http.Request {
 
 func makeRequest(requests []*http.Request) {
 	for _, req := range requests {
+		log.Println(req.URL.String())
+		req.Close = true
 		resp, err := client.Do(req)
 		if err != nil {
 			log.Println("ERROR: ", err)
@@ -147,5 +155,7 @@ func main() {
 		go makeRequest(requests)
 	}
 	wg.Wait()
+	client.Do(dumpCommand)
+	log.Println(dumpCommand.URL.String())
 	fmt.Println("Time taken: ", time.Since(start))
 }
