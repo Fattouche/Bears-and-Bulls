@@ -131,7 +131,6 @@ func generateRequest(userID string, commands []string) *http.Request {
 
 func makeRequest(requests []*http.Request) {
 	for _, req := range requests {
-		log.Println(req.URL.String())
 		req.Close = true
 		resp, err := client.Do(req)
 		if err != nil {
@@ -156,6 +155,5 @@ func main() {
 	}
 	wg.Wait()
 	client.Do(dumpCommand)
-	log.Println(dumpCommand.URL.String())
 	fmt.Println("Time taken: ", time.Since(start))
 }
