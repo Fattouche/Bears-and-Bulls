@@ -14,6 +14,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"strconv"
 )
 
 var getMap = map[string]int{"QUOTE": 1, "DUMPLOG": 1, "DISPLAY_SUMMARY": 1}
@@ -52,6 +53,7 @@ func parseCommands(filename string) {
 
 	scanner := bufio.NewScanner(file)
 	var userID string
+	var transactionNum = 1
 	for scanner.Scan() {
 		totalCommand := strings.Split(scanner.Text(), " ")
 		userCommands := strings.Split(totalCommand[1], ",")
@@ -65,7 +67,8 @@ func parseCommands(filename string) {
 		} else {
 			userID = userCommands[1]
 		}
-		req := generateRequest(userID, userCommands)
+		req := generateRequest(userID, userCommands, transactionNum)
+		transactionNum++
 		if _, ok := userMap[userID]; !ok {
 			userMap[userID] = make([]*http.Request, 0)
 		}
@@ -73,7 +76,7 @@ func parseCommands(filename string) {
 	}
 }
 
-func generateRequest(userID string, commands []string) *http.Request {
+func generateRequest(userID string, commands []string, transactionNum int) *http.Request {
 	requestType := "POST"
 	if _, ok := getMap[commands[0]]; ok {
 		requestType = "GET"
@@ -105,6 +108,7 @@ func generateRequest(userID string, commands []string) *http.Request {
 			}
 		}
 	}
+	params["transaction_num"] = strconv.Itoa(transactionNum)
 	url := baseURL + strings.ToLower(commands[0])
 	if requestType == "POST" {
 		jsonValue, _ := json.Marshal(params)

@@ -6,8 +6,6 @@ class LogRequestMiddleware(object):
         self.get_response = get_response
 
     def __call__(self, request):
-        # TODO(cailan): deal with server_name
-        # TODO(cailan): deal with transaction_num
         command = request.path[1:].upper()
         log_input = {}
         if request.method == 'POST':
@@ -24,5 +22,7 @@ class LogRequestMiddleware(object):
         if 'funds' in params:
             log_input['funds'] = params['funds']
 
-        AuditLogger.log_user_command('BEAVER_1', 1, command, **(log_input))
+        # TODO(cailan): deal with server_name
+        AuditLogger.log_user_command('BEAVER_1', params['transaction_num'], 
+                                    command, **(log_input))
         return self.get_response(request)

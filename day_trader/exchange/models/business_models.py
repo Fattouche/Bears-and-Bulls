@@ -30,27 +30,28 @@ class Socket():
 
 
 class Stock:
-    def __init__(self, symbol, price):
+    def __init__(self, symbol, price, transaction_num):
         self.symbol = symbol
         self.price = Decimal(price)
+        self.transaction_num = transaction_num
 
     def check_sell_trigger(self):
         sell_trigger = SellTrigger.objects.filter(
             sell__stock_symbol=self.symbol, active=True)
         for trigger in sell_trigger:
-            trigger.check_validity(self.price)
+            trigger.check_validity(self.price, self.transaction_num)
 
     def check_buy_trigger(self):
         buy_trigger = BuyTrigger.objects.filter(
             buy__stock_symbol=self.symbol, active=True)
         for trigger in buy_trigger:
-            trigger.check_validity(self.price)
+        trigger.check_validity(self.price)
 
     def verify_triggers(self):
         self.check_sell_trigger()
         self.check_buy_trigger()
 
-    def execute_quote_request(self, user_id):
+    def execute_quote_request(self, user_id, transaction_num):
         request = "{},{}\r".format(self.symbol, user_id)
         socket = Socket()
         socket.socket.send(request.encode())
@@ -109,7 +110,7 @@ class User(models.Model):
     def cancel_buy(self):
         buy = self.pop_from_buy_stack()
         if buy is not None:
-            buy.cancel(self)
+            buy.cancel(self, transaction_num)
 
     def perform_sell(self, symbol, amount):
         user_stock, created = UserStock.objects.get_or_create(
@@ -180,7 +181,7 @@ class User(models.Model):
         except ObjectDoesNotExist:
             return "Trigger requires a sell amount first, please make one"
 
-    def cancel_set_buy(self, symbol):
+    def cancel_set_buy(self, symbol, transaction_num):
         try:
             buy_trigger = BuyTrigger.objects.get(
                 buy__stock_symbol=symbol, user=self)
@@ -230,7 +231,6 @@ class UserStock(models.Model):
         self.amount += change
         self.save()
 
-
 class Sell(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     stock_symbol = models.CharField(max_length=3)
@@ -278,8 +278,8 @@ class Sell(models.Model):
             return "Not enough stock, have {0} need {1}".format(user_stock.amount, stock_sold_amount)
         self.intended_cash_amount = amount
 
-    def commit(self, user):
-        user.update_balance(self.actual_cash_amount)
+    def commit(self, user, transaction_num):
+        user.update_balance(self.actual_cash_amount, transaction_num)
         self.save()
 
     def cancel(self):
