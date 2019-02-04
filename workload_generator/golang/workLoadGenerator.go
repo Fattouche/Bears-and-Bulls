@@ -156,7 +156,7 @@ func worker() {
 func main() {
 	fileName := flag.String("f", "1userWorkLoad", "The name of the workload file")
 	tempBaseURL := flag.String("url", "http://daytraderlb/", "The url of the web server")
-	workers := flag.Int("w", 10, "The number of client workers")
+	workers := flag.Int("w", 1, "The number of client workers")
 	flag.Parse()
 	baseURL = *tempBaseURL
 	parseCommands(*fileName)
