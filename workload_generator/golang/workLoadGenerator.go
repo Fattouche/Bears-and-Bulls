@@ -11,10 +11,10 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
-	"strconv"
 )
 
 var getMap = map[string]int{"QUOTE": 1, "DUMPLOG": 1, "DISPLAY_SUMMARY": 1}
@@ -43,6 +43,7 @@ var userMap = make(map[string][]*http.Request)
 var wg sync.WaitGroup
 var baseURL string
 var client = &http.Client{}
+var reqs = make(chan *http.Request, 1000)
 
 func parseCommands(filename string) {
 	file, err := os.Open(filename)
@@ -135,30 +136,35 @@ func generateRequest(userID string, commands []string, transactionNum int) *http
 
 func makeRequest(requests []*http.Request) {
 	for _, req := range requests {
+		reqs <- req
+	}
+}
+
+func worker() {
+	for {
+		req := <-reqs
 		req.Close = true
-		resp, err := client.Do(req)
-		if err != nil {
-			log.Println("ERROR: ", err)
-		}
-		/*if resp.StatusCode == 400 {
-			buf := make([]byte, 1000)
-			resp.Body.Read(buf)
-			log.Println(string(buf))
-		}*/
+		resp, _ := client.Do(req)
 		io.Copy(ioutil.Discard, resp.Body)
 		resp.Body.Close()
+		if len(reqs) == 0 {
+			wg.Done()
+		}
 	}
-	wg.Done()
 }
 
 func main() {
 	fileName := flag.String("f", "1userWorkLoad", "The name of the workload file")
 	tempBaseURL := flag.String("url", "http://daytraderlb/", "The url of the web server")
+	workers := flag.Int("w", 10, "The number of client workers")
 	flag.Parse()
 	baseURL = *tempBaseURL
 	parseCommands(*fileName)
-	wg.Add(len(userMap))
+	wg.Add(*workers)
 	start := time.Now()
+	for i := 0; i < *workers; i++ {
+		go worker()
+	}
 	for _, requests := range userMap {
 		go makeRequest(requests)
 	}
