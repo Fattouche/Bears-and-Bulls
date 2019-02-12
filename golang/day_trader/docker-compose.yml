@@ -9,7 +9,7 @@ services:
    ports:
    - '41000'
    volumes:
-   - ./day_trader:/day_trader
+   - .:/day_trader
   cache:
     container_name: day_trader_cache
     image: memcached
