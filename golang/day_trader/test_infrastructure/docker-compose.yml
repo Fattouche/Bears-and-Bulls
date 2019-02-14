@@ -4,9 +4,9 @@ services:
    environment:
     PYTHONUNBUFFERED: 1
    build:
-     context: ../../images/web
+     context: ../images/web
    volumes:
-   - ../../day_trader:/go/src/day_trader
+   - ../src/day_trader:/go/src/day_trader
   cache:
     image: memcached
   db:

@@ -64,7 +64,7 @@ var db *sql.DB
 
 func createAndOpenDB() {
 	var err error
-	db, err = sql.Open("mysql", "root:@tcp(db:3306)/")
+	db, err = sql.Open("mysql", "root:@tcp(daytrader_db:3306)/")
 	if err != nil {
 		panic(err)
 	}

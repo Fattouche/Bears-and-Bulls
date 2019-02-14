@@ -1,5 +1,10 @@
 package main
 
+import (
+	"context"
+	"log"
+)
+
 func (user *User) toString() string {
 	if user == nil {
 		return ""
@@ -44,12 +49,26 @@ func createUser(userID string) error {
 	return err
 }
 
-func (user *User) updateUserBalance(amount float32) (*User, error) {
+func (user *User) updateUserBalance(ctx context.Context, amount float32) (*User, error) {
+	var accountAction string
+	if amount < 0 {
+		accountAction = "Remove"
+	} else {
+		accountAction = "Add"
+	}
 	user.Balance += amount
 	_, err := db.Exec("update User set Balance=? where Id=?", user.Balance, user.Id)
 	if err != nil {
 		return user, err
 	}
+	pbLog, err := makeLogFromContext(ctx)
+	if err != nil {
+		log.Println(err)
+	}
+	pbLog.AccountAction = accountAction
+	pbLog.Funds = user.Balance
+	logEvent := &logObj{log: &pbLog, funcName: "LogAccountTransaction"}
+	logChan <- logEvent
 	user.setCache()
 	return user, nil
 }

@@ -1,7 +1,6 @@
 services:
-  web:
+  daytrader_web:
    command: go run .
-   container_name: day_trader_web
    environment:
     PYTHONUNBUFFERED: 1
    build:
@@ -11,25 +10,22 @@ services:
    - '6060:6060'
    volumes:
    - ./src:/go/src/day_trader
-  cache:
-    container_name: day_trader_cache
+  daytrader_cache:
     image: memcached
     ports:
     - '11211:11211'
-  db:
+  daytrader_db:
     image: mysql
     command: mysqld --max_allowed_packet=256M --max_connections=1024 --default-authentication-plugin=mysql_native_password
-    container_name: day_trader_db
     environment:
       MYSQL_DATABASE: daytrader
       MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
     ports:
     - '3306:3306'
-  lb:
+  daytrader_lb:
     build:
       context: ./images/nginx
     command: /service/entrypoint.sh
-    container_name: day_trader_lb
     volumes:
       - ./images/nginx/nginx.conf:/etc/nginx/nginx.conf
     ports:

@@ -1,5 +1,7 @@
 package main
 
+import "context"
+
 func (userStock *UserStock) toString() string {
 	if userStock == nil {
 		return ""
@@ -8,7 +10,7 @@ func (userStock *UserStock) toString() string {
 	return string(bytes)
 }
 
-func getOrCreateUserStock(userID, symbol string) *UserStock {
+func getOrCreateUserStock(ctx context.Context, userID, symbol string) *UserStock {
 	userStock := &UserStock{UserId: userID, StockSymbol: symbol}
 	err := db.QueryRow("SELECT Amount from User_Stock where UserId=? and StockSymbol=?", userID, symbol).Scan(&userStock.Amount)
 	if err != nil {
@@ -18,7 +20,7 @@ func getOrCreateUserStock(userID, symbol string) *UserStock {
 	return userStock
 }
 
-func (userStock *UserStock) updateStockAmount(amount int) error {
+func (userStock *UserStock) updateStockAmount(ctx context.Context, amount int) error {
 	userStock.Amount += amount
 	_, err := db.Exec("update User_Stock set Amount=? where UserId=? and StockSymbol=?", userStock.Amount, userStock.UserId, userStock.StockSymbol)
 	return err

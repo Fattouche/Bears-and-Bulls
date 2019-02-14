@@ -93,18 +93,18 @@ var (
 
 func (s *server) Add(ctx context.Context, req *pb.Command) (*pb.Response, error) {
 	user := getUser(req.UserId)
-	user.updateUserBalance(req.Amount)
+	user.updateUserBalance(ctx, req.Amount)
 	return &pb.Response{Message: user.toString()}, nil
 }
 
 func (s *server) Buy(ctx context.Context, req *pb.Command) (*pb.Response, error) {
 	user := getUser(req.UserId)
-	buy, err := createBuy(req.Amount, req.Symbol, user.Id)
+	buy, err := createBuy(ctx, req.Amount, req.Symbol, user.Id)
 	return &pb.Response{Message: buy.toString()}, err
 }
 
 func (s *server) Quote(ctx context.Context, req *pb.Command) (*pb.Response, error) {
-	stock, err := quote(req.UserId, req.Symbol)
+	stock, err := quote(ctx, req.UserId, req.Symbol)
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +113,7 @@ func (s *server) Quote(ctx context.Context, req *pb.Command) (*pb.Response, erro
 
 func (s *server) Sell(ctx context.Context, req *pb.Command) (*pb.Response, error) {
 	user := getUser(req.UserId)
-	sell, err := createSell(req.Amount, req.Symbol, user.Id)
+	sell, err := createSell(ctx, req.Amount, req.Symbol, user.Id)
 	if err != nil {
 		return nil, err
 	}
@@ -128,7 +128,7 @@ func (s *server) CommitBuy(ctx context.Context, req *pb.Command) (*pb.Response, 
 	if buy == nil {
 		return nil, errors.New("No buy on the stack")
 	}
-	userStock, err := buy.commit(false)
+	userStock, err := buy.commit(ctx, false)
 	return &pb.Response{Message: userStock.toString()}, err
 }
 func (s *server) CommitSell(ctx context.Context, req *pb.Command) (*pb.Response, error) {
@@ -137,7 +137,7 @@ func (s *server) CommitSell(ctx context.Context, req *pb.Command) (*pb.Response,
 	if sell == nil {
 		return nil, errors.New("No sell on the stack")
 	}
-	err := sell.commit(false)
+	err := sell.commit(ctx, false)
 	return &pb.Response{Message: user.toString()}, err
 }
 
@@ -145,7 +145,7 @@ func (s *server) CancelBuy(ctx context.Context, req *pb.Command) (*pb.Response, 
 	user := getUser(req.UserId)
 	buy := user.popFromBuyStack()
 	if buy != nil {
-		buy.cancel()
+		buy.cancel(ctx)
 	} else {
 		return nil, errors.New("No buy on stack")
 	}
@@ -156,7 +156,7 @@ func (s *server) CancelSell(ctx context.Context, req *pb.Command) (*pb.Response,
 	user := getUser(req.UserId)
 	sell := user.popFromSellStack()
 	if sell != nil {
-		sell.cancel()
+		sell.cancel(ctx)
 	} else {
 		return nil, errors.New("No sell on stack")
 	}
@@ -168,70 +168,70 @@ func (s *server) SetBuyAmount(ctx context.Context, req *pb.Command) (*pb.Respons
 	if user.Balance < req.Amount {
 		return nil, fmt.Errorf("Not enough balance, have %f need %f", user.Balance, req.Amount)
 	}
-	trigger, err := getBuyTrigger(user.Id, req.Symbol)
+	trigger, err := getBuyTrigger(ctx, user.Id, req.Symbol)
 	if err != nil {
-		buy, err := createBuy(req.Amount, req.Symbol, user.Id)
+		buy, err := createBuy(ctx, req.Amount, req.Symbol, user.Id)
 		if err != nil {
 			return nil, err
 		}
-		buy, err = buy.insertBuy()
+		buy, err = buy.insertBuy(ctx)
 		if err != nil {
 			log.Println(err)
 		}
-		trigger := createBuyTrigger(user.Id, req.Symbol, buy.Id, req.Amount)
+		trigger := createBuyTrigger(ctx, user.Id, req.Symbol, buy.Id, req.Amount)
 		return &pb.Response{Message: trigger.toString()}, nil
 	}
-	return &pb.Response{Message: trigger.toString()}, trigger.updateCashAmount(req.Amount)
+	return &pb.Response{Message: trigger.toString()}, trigger.updateCashAmount(ctx, req.Amount)
 }
 
 func (s *server) SetSellAmount(ctx context.Context, req *pb.Command) (*pb.Response, error) {
-	trigger, err := getSellTrigger(req.UserId, req.Symbol)
+	trigger, err := getSellTrigger(ctx, req.UserId, req.Symbol)
 	if err != nil {
 		sell := &Sell{StockSymbol: req.Symbol, UserId: req.UserId}
-		err = sell.updateCashAmount(req.Amount)
+		err = sell.updateCashAmount(ctx, req.Amount)
 		if err != nil {
 			return nil, err
 		}
-		sell.insertSell()
-		trigger := createSellTrigger(req.UserId, req.Symbol, sell.Id, req.Amount)
+		sell.insertSell(ctx)
+		trigger := createSellTrigger(ctx, req.UserId, req.Symbol, sell.Id, req.Amount)
 		return &pb.Response{Message: trigger.toString()}, nil
 	}
-	return &pb.Response{Message: trigger.toString()}, trigger.updateCashAmount(req.Amount)
+	return &pb.Response{Message: trigger.toString()}, trigger.updateCashAmount(ctx, req.Amount)
 }
 
 func (s *server) SetBuyTrigger(ctx context.Context, req *pb.Command) (*pb.Response, error) {
-	trigger, err := getBuyTrigger(req.UserId, req.Symbol)
+	trigger, err := getBuyTrigger(ctx, req.UserId, req.Symbol)
 	if err != nil {
 		return nil, errors.New("Trigger requires a buy amount first, please make one")
 	}
-	trigger.updatePrice(req.Amount)
+	trigger.updatePrice(ctx, req.Amount)
 	return &pb.Response{Message: trigger.toString()}, nil
 }
 
 func (s *server) SetSellTrigger(ctx context.Context, req *pb.Command) (*pb.Response, error) {
-	trigger, err := getSellTrigger(req.UserId, req.Symbol)
+	trigger, err := getSellTrigger(ctx, req.UserId, req.Symbol)
 	if err != nil {
 		return nil, errors.New("Trigger requires a sell amount first, please make one")
 	}
-	trigger.updatePrice(req.Amount)
+	trigger.updatePrice(ctx, req.Amount)
 	return &pb.Response{Message: trigger.toString()}, nil
 }
 
 func (s *server) CancelSetBuy(ctx context.Context, req *pb.Command) (*pb.Response, error) {
-	trigger, err := getBuyTrigger(req.UserId, req.Symbol)
+	trigger, err := getBuyTrigger(ctx, req.UserId, req.Symbol)
 	if err != nil {
 		return nil, errors.New("Set buy not found")
 	}
-	trigger.cancel()
+	trigger.cancel(ctx)
 	return &pb.Response{Message: "Disabling trigger"}, nil
 }
 
 func (s *server) CancelSetSell(ctx context.Context, req *pb.Command) (*pb.Response, error) {
-	trigger, err := getSellTrigger(req.UserId, req.Symbol)
+	trigger, err := getSellTrigger(ctx, req.UserId, req.Symbol)
 	if err != nil {
 		return nil, errors.New("Set sell not found")
 	}
-	trigger.cancel()
+	trigger.cancel(ctx)
 	return &pb.Response{Message: "Disabling trigger"}, nil
 }
 
@@ -274,5 +274,8 @@ func main() {
 	createAndOpenDB()
 	initCache()
 	startGRPCServer()
+	for i := 0; i < 5; i++ {
+		go startLoggerWorker()
+	}
 	go watchTriggers()
 }

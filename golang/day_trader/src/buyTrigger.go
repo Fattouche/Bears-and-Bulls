@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"log"
 )
@@ -13,7 +14,7 @@ func (trigger *BuyTrigger) toString() string {
 	return string(bytes)
 }
 
-func getBuyTrigger(userID, symbol string) (*BuyTrigger, error) {
+func getBuyTrigger(ctx context.Context, userID, symbol string) (*BuyTrigger, error) {
 	buyTrigger := &BuyTrigger{UserId: userID, BuyId: -1}
 	db.QueryRow("SELECT Buy.Id,Buy_Trigger.Active from Buy_Trigger inner join Buy on Buy_Trigger.BuyId=Buy.Id where Buy_Trigger.UserId=? and Buy.StockSymbol=?", buyTrigger.UserId, symbol).Scan(&buyTrigger.BuyId, &buyTrigger.Active)
 	if buyTrigger.BuyId == -1 {
@@ -22,32 +23,32 @@ func getBuyTrigger(userID, symbol string) (*BuyTrigger, error) {
 	return buyTrigger, nil
 }
 
-func (trigger *BuyTrigger) updateCashAmount(amount float32) error {
-	buy := getBuy(trigger.BuyId)
-	_, err := buy.updateCashAmount(amount)
+func (trigger *BuyTrigger) updateCashAmount(ctx context.Context, amount float32) error {
+	buy := getBuy(ctx, trigger.BuyId)
+	_, err := buy.updateCashAmount(ctx, amount)
 	if err != nil {
 		return err
 	}
-	buy.updateBuy()
+	buy.updateBuy(ctx)
 	return err
 }
 
-func (trigger *BuyTrigger) updatePrice(price float32) {
-	buy := getBuy(trigger.BuyId)
+func (trigger *BuyTrigger) updatePrice(ctx context.Context, price float32) {
+	buy := getBuy(ctx, trigger.BuyId)
 	buy.updatePrice(price)
-	buy.updateBuy()
+	buy.updateBuy(ctx)
 	trigger.Active = true
 	db.Exec("UPDATE Buy_Trigger set Active=true where UserId=? and BuyId=?", trigger.UserId, trigger.BuyId)
 }
 
-func (trigger *BuyTrigger) cancel() {
-	buy := getBuy(trigger.BuyId)
-	buy.cancel()
+func (trigger *BuyTrigger) cancel(ctx context.Context) {
+	buy := getBuy(ctx, trigger.BuyId)
+	buy.cancel(ctx)
 	db.Exec("DELETE From Buy_Trigger UserId=? and BuyId=?", trigger.UserId, trigger.BuyId)
 	db.Exec("DELETE From Buy where Id=?", trigger.BuyId)
 }
 
-func createBuyTrigger(userID, symbol string, buyID int64, amount float32) *BuyTrigger {
+func createBuyTrigger(ctx context.Context, userID, symbol string, buyID int64, amount float32) *BuyTrigger {
 	_, err := db.Exec("insert into Buy_Trigger(UserId,BuyId) values(?,?)", userID, buyID)
 	if err != nil {
 		log.Println(err)
@@ -72,10 +73,10 @@ func checkBuyTriggers() {
 	}
 	rows.Close()
 	for _, buy := range buys {
-		stock, _ := quote(buy.UserId, buy.StockSymbol)
+		stock, _ := quote(context.Background(), buy.UserId, buy.StockSymbol)
 		if buy.Price >= stock.Price {
 			buy.updatePrice(stock.Price)
-			buy.commit(true)
+			buy.commit(context.Background(), true)
 			db.Exec("Delete From Buy_Trigger where BuyId=? and UserId=?", buy.Id, buy.UserId)
 		}
 	}

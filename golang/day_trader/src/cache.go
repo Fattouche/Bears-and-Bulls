@@ -7,7 +7,7 @@ import (
 var cache *memcache.Client
 
 func initCache() {
-	cache, _ = memcache.New("cache:11211")
+	cache, _ = memcache.New("daytrader_cache:11211")
 }
 
 func (user *User) setCache() error {
