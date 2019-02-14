@@ -273,9 +273,9 @@ func main() {
 	// }()
 	createAndOpenDB()
 	initCache()
-	startGRPCServer()
 	for i := 0; i < 5; i++ {
 		go startLoggerWorker()
 	}
 	go watchTriggers()
+	startGRPCServer()
 }

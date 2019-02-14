@@ -45,6 +45,7 @@ func populateContextWithLogInfo(ctx context.Context, command *pb.Command) contex
 		TransactionNum: command.TransactionId,
 		Username:       command.UserId,
 		ServerName:     "Beaver_1",
+		Command:        command.Name,
 	}
 	key = "log"
 	ctx = context.WithValue(ctx, key, rawLog)

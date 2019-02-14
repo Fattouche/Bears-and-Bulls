@@ -77,7 +77,7 @@ func createAndOpenDB() {
 			}
 		}
 	}
-	db, err = sql.Open("mysql", "root@tcp(db:3306)/daytrader")
+	db, err = sql.Open("mysql", "root@tcp(daytrader_db:3306)/daytrader")
 	if err != nil {
 		panic(err)
 	}

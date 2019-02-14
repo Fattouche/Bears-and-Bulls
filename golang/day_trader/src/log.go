@@ -18,7 +18,7 @@ type logObj struct {
 }
 
 func makeLogFromContext(ctx context.Context) (pb.Log, error) {
-	if contextValue := ctx.Value("log"); contextValue != nil {
+	if contextValue := ctx.Value(logKey("log")); contextValue != nil {
 		if log, ok := contextValue.(pb.Log); ok {
 			return log, nil
 		} else {
@@ -32,6 +32,7 @@ func makeLogFromContext(ctx context.Context) (pb.Log, error) {
 		TransactionNum: -1,
 		Username:       "__no_user__",
 		ServerName:     "Beaver_1", // TODO(cailan): use environment variable
+		Command: 		"__no_command__",
 	}, nil
 }
 
@@ -43,7 +44,6 @@ func startLoggerWorker() {
 	client := pb.NewLoggerClient(conn)
 	for {
 		obj := <-logChan
-		log.Println("WE ARE HERE:", obj.funcName)
 		switch obj.funcName {
 		case "LogUserCommand":
 			client.LogUserCommand(context.Background(), obj.log)
