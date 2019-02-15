@@ -8,6 +8,7 @@ import (
 	"net"
 	"time"
 
+	"net/http"
 	_ "net/http/pprof"
 
 	pb "github.com/Fattouche/DayTrader/golang/protobuff"
@@ -90,6 +91,11 @@ var (
 	CACHE_HOST = "cache"
 	CACHE_PORT = ":11211"
 )
+
+func (s *server) CreateUser(ctx context.Context, req *pb.Command) (*pb.Response, error) {
+	createUser(req.UserId)
+	return &pb.Response{Message: "Created user with id" + req.UserId}, nil
+}
 
 func (s *server) Add(ctx context.Context, req *pb.Command) (*pb.Response, error) {
 	user := getUser(req.UserId)
@@ -268,9 +274,9 @@ func watchTriggers() {
 
 func main() {
 	//Uncomment and run `go tool pprof -png http://localhost:6060/debug/pprof/profile?seconds=30 > out.png` to get image
-	// go func() {
-	// 	log.Println(http.ListenAndServe(":6060", nil))
-	// }()
+	go func() {
+		log.Println(http.ListenAndServe(":6060", nil))
+	}()
 	createAndOpenDB()
 	initCache()
 	for i := 0; i < 500; i++ {

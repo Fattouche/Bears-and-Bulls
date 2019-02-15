@@ -32,7 +32,7 @@ func makeLogFromContext(ctx context.Context) (pb.Log, error) {
 		TransactionNum: -1,
 		Username:       "__no_user__",
 		ServerName:     "Beaver_1", // TODO(cailan): use environment variable
-		Command: 		"__no_command__",
+		Command:        "__no_command__",
 	}, nil
 }
 

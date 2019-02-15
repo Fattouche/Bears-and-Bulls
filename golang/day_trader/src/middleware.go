@@ -67,7 +67,6 @@ func logUserCommand(ctx context.Context, command *pb.Command) error {
 
 // make sure user exists
 func checks(req *pb.Command) error {
-	createUser(req.UserId)
 	if req.Name != "DUMPLOG" && req.Name != "DISPLAY_SUMMARY" {
 		if req.UserId == "" {
 			return errors.New("No user Id specified")

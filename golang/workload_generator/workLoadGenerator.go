@@ -174,12 +174,26 @@ func makeDumpRequest() {
 	completeCall(dumpData, client)
 }
 
+func createUsers(userMap map[string][]*pb.Command) {
+	conn, err := grpc.Dial(baseURL, grpc.WithInsecure())
+	if err != nil {
+		log.Printf("Failed to dial to %s with %v", baseURL, err)
+	}
+	defer conn.Close()
+	client := pb.NewDayTraderClient(conn)
+	for userId := range userMap {
+		cmd := &pb.Command{UserId: userId}
+		client.CreateUser(context.Background(), cmd)
+	}
+}
+
 func main() {
-	fileName := flag.String("f", "./workload_files/45_user_workload.workload", "The name of the workload file")
+	fileName := flag.String("f", "./workload_files/100_user_workload.workload", "The name of the workload file")
 	tempBaseURL := flag.String("url", "daytrader_lb:80", "The url of the web server")
 	flag.Parse()
 	baseURL = *tempBaseURL
 	parseCommands(*fileName)
+	createUsers(userMap)
 	start := time.Now()
 	wg.Add(len(userMap))
 	for _, requests := range userMap {

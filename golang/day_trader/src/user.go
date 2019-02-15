@@ -45,7 +45,11 @@ func getUser(userID string) *User {
 }
 
 func createUser(userID string) error {
-	_, err := db.Exec("insert ignore into User(Id) values(?)", userID)
+	user := &User{Id: userID, Balance: 0, Name: ""}
+	user.SellStack = make([]*Sell, 0)
+	user.BuyStack = make([]*Buy, 0)
+	user.setCache()
+	_, err := db.Exec("insert into User(Id) values(?)", userID)
 	return err
 }
 
