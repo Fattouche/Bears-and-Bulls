@@ -8,7 +8,6 @@ import (
 	"net"
 	"time"
 
-	"net/http"
 	_ "net/http/pprof"
 
 	pb "github.com/Fattouche/DayTrader/golang/protobuff"
@@ -274,9 +273,9 @@ func watchTriggers() {
 
 func main() {
 	//Uncomment and run `go tool pprof -png http://localhost:6060/debug/pprof/profile?seconds=30 > out.png` to get image
-	go func() {
-		log.Println(http.ListenAndServe(":6060", nil))
-	}()
+	// go func() {
+	// 	log.Println(http.ListenAndServe(":6060", nil))
+	// }()
 	createAndOpenDB()
 	initCache()
 	for i := 0; i < 500; i++ {
