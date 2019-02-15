@@ -55,7 +55,7 @@ var createTableStatements = []string{
 	`CREATE TABLE IF NOT EXISTS User_Stock(
 		UserId varchar(32) NOT NULL,
 		StockSymbol varchar(3) NULL,
-		Amount INT DEFAULT 0,
+		Amount INT UNSIGNED DEFAULT 0,
 		UNIQUE(UserId, StockSymbol),
 		FOREIGN KEY (UserId) REFERENCES User(Id) ON DELETE CASCADE
 	)`,

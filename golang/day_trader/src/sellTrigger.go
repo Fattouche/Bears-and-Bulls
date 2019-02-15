@@ -14,9 +14,9 @@ func (trigger *SellTrigger) toString() string {
 	return string(bytes)
 }
 
-func (trigger *SellTrigger) updateCashAmount(ctx context.Context, amount float32) error {
+func (trigger *SellTrigger) updateCashAmount(ctx context.Context, amount float32, user *User) error {
 	sell := getSell(ctx, trigger.SellId)
-	err := sell.updateCashAmount(ctx, amount)
+	err := sell.updateCashAmount(ctx, amount, user)
 	if err != nil {
 		return err
 	}
@@ -24,9 +24,9 @@ func (trigger *SellTrigger) updateCashAmount(ctx context.Context, amount float32
 	return err
 }
 
-func (trigger *SellTrigger) updatePrice(ctx context.Context, price float32) error {
+func (trigger *SellTrigger) updatePrice(ctx context.Context, price float32, user *User) error {
 	sell := getSell(ctx, trigger.SellId)
-	err := sell.updatePrice(ctx, price)
+	err := sell.updatePrice(ctx, price, user)
 	if err == nil {
 		trigger.Active = true
 		sell.updateSell(ctx)
@@ -35,9 +35,9 @@ func (trigger *SellTrigger) updatePrice(ctx context.Context, price float32) erro
 	return err
 }
 
-func (trigger *SellTrigger) cancel(ctx context.Context) {
+func (trigger *SellTrigger) cancel(ctx context.Context, user *User) {
 	sell := getSell(ctx, trigger.SellId)
-	sell.cancel(ctx)
+	sell.cancel(ctx, user)
 	db.Exec("DELETE from Sell_Trigger UserId=? and SellId=?", trigger.UserId, trigger.SellId)
 	db.Exec("DELETE From Sell where Id=?", trigger.SellId)
 }
@@ -78,8 +78,9 @@ func checkSellTriggers() {
 	for _, sell := range sells {
 		stock, _ := quote(context.Background(), sell.UserId, sell.StockSymbol)
 		if sell.Price <= stock.Price {
-			sell.updatePrice(context.Background(), stock.Price)
-			sell.commit(context.Background(), true)
+			user := getUser(sell.UserId)
+			sell.updatePrice(context.Background(), stock.Price, user)
+			sell.commit(context.Background(), true, user)
 			db.Exec("Delete From Sell_Trigger where SellId=? and UserId=?", sell.Id, sell.UserId)
 		}
 	}

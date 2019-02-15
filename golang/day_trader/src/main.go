@@ -32,6 +32,7 @@ type User struct {
 	Id        string
 	BuyStack  []*Buy
 	SellStack []*Sell
+	StockMap  map[string]int
 }
 
 //easyjson:json
@@ -98,13 +99,13 @@ func (s *server) CreateUser(ctx context.Context, req *pb.Command) (*pb.Response,
 
 func (s *server) Add(ctx context.Context, req *pb.Command) (*pb.Response, error) {
 	user := getUser(req.UserId)
-	user.updateUserBalance(ctx, req.Amount)
+	user.updateUserBalance(ctx, req.Amount, true)
 	return &pb.Response{Message: user.toString()}, nil
 }
 
 func (s *server) Buy(ctx context.Context, req *pb.Command) (*pb.Response, error) {
 	user := getUser(req.UserId)
-	buy, err := createBuy(ctx, req.Amount, req.Symbol, user.Id)
+	buy, err := createBuy(ctx, req.Amount, req.Symbol, user)
 	return &pb.Response{Message: buy.toString()}, err
 }
 
@@ -118,7 +119,7 @@ func (s *server) Quote(ctx context.Context, req *pb.Command) (*pb.Response, erro
 
 func (s *server) Sell(ctx context.Context, req *pb.Command) (*pb.Response, error) {
 	user := getUser(req.UserId)
-	sell, err := createSell(ctx, req.Amount, req.Symbol, user.Id)
+	sell, err := createSell(ctx, req.Amount, req.Symbol, user)
 	if err != nil {
 		return nil, err
 	}
@@ -133,7 +134,7 @@ func (s *server) CommitBuy(ctx context.Context, req *pb.Command) (*pb.Response, 
 	if buy == nil {
 		return nil, errors.New("No buy on the stack")
 	}
-	userStock, err := buy.commit(ctx, false)
+	userStock, err := buy.commit(ctx, user, false)
 	return &pb.Response{Message: userStock.toString()}, err
 }
 func (s *server) CommitSell(ctx context.Context, req *pb.Command) (*pb.Response, error) {
@@ -142,7 +143,7 @@ func (s *server) CommitSell(ctx context.Context, req *pb.Command) (*pb.Response,
 	if sell == nil {
 		return nil, errors.New("No sell on the stack")
 	}
-	err := sell.commit(ctx, false)
+	err := sell.commit(ctx, false, user)
 	return &pb.Response{Message: user.toString()}, err
 }
 
@@ -150,7 +151,7 @@ func (s *server) CancelBuy(ctx context.Context, req *pb.Command) (*pb.Response, 
 	user := getUser(req.UserId)
 	buy := user.popFromBuyStack()
 	if buy != nil {
-		buy.cancel(ctx)
+		buy.cancel(ctx, user)
 	} else {
 		return nil, errors.New("No buy on stack")
 	}
@@ -161,7 +162,7 @@ func (s *server) CancelSell(ctx context.Context, req *pb.Command) (*pb.Response,
 	user := getUser(req.UserId)
 	sell := user.popFromSellStack()
 	if sell != nil {
-		sell.cancel(ctx)
+		sell.cancel(ctx, user)
 	} else {
 		return nil, errors.New("No sell on stack")
 	}
@@ -175,7 +176,7 @@ func (s *server) SetBuyAmount(ctx context.Context, req *pb.Command) (*pb.Respons
 	}
 	trigger, err := getBuyTrigger(ctx, user.Id, req.Symbol)
 	if err != nil {
-		buy, err := createBuy(ctx, req.Amount, req.Symbol, user.Id)
+		buy, err := createBuy(ctx, req.Amount, req.Symbol, user)
 		if err != nil {
 			return nil, err
 		}
@@ -186,14 +187,16 @@ func (s *server) SetBuyAmount(ctx context.Context, req *pb.Command) (*pb.Respons
 		trigger := createBuyTrigger(ctx, user.Id, req.Symbol, buy.Id, req.Amount)
 		return &pb.Response{Message: trigger.toString()}, nil
 	}
-	return &pb.Response{Message: trigger.toString()}, trigger.updateCashAmount(ctx, req.Amount)
+	return &pb.Response{Message: trigger.toString()}, trigger.updateCashAmount(ctx, req.Amount, user)
 }
 
 func (s *server) SetSellAmount(ctx context.Context, req *pb.Command) (*pb.Response, error) {
+	user := getUser(userId)
 	trigger, err := getSellTrigger(ctx, req.UserId, req.Symbol)
 	if err != nil {
+		user := getUser(req.UserId)
 		sell := &Sell{StockSymbol: req.Symbol, UserId: req.UserId}
-		err = sell.updateCashAmount(ctx, req.Amount)
+		err = sell.updateCashAmount(ctx, req.Amount, user)
 		if err != nil {
 			return nil, err
 		}
@@ -201,7 +204,7 @@ func (s *server) SetSellAmount(ctx context.Context, req *pb.Command) (*pb.Respon
 		trigger := createSellTrigger(ctx, req.UserId, req.Symbol, sell.Id, req.Amount)
 		return &pb.Response{Message: trigger.toString()}, nil
 	}
-	return &pb.Response{Message: trigger.toString()}, trigger.updateCashAmount(ctx, req.Amount)
+	return &pb.Response{Message: trigger.toString()}, trigger.updateCashAmount(ctx, req.Amount, user)
 }
 
 func (s *server) SetBuyTrigger(ctx context.Context, req *pb.Command) (*pb.Response, error) {
@@ -214,29 +217,32 @@ func (s *server) SetBuyTrigger(ctx context.Context, req *pb.Command) (*pb.Respon
 }
 
 func (s *server) SetSellTrigger(ctx context.Context, req *pb.Command) (*pb.Response, error) {
+	user := getUser(req.UserId)
 	trigger, err := getSellTrigger(ctx, req.UserId, req.Symbol)
 	if err != nil {
 		return nil, errors.New("Trigger requires a sell amount first, please make one")
 	}
-	trigger.updatePrice(ctx, req.Amount)
+	trigger.updatePrice(ctx, req.Amount, user)
 	return &pb.Response{Message: trigger.toString()}, nil
 }
 
 func (s *server) CancelSetBuy(ctx context.Context, req *pb.Command) (*pb.Response, error) {
+	user := getUser(userId)
 	trigger, err := getBuyTrigger(ctx, req.UserId, req.Symbol)
 	if err != nil {
 		return nil, errors.New("Set buy not found")
 	}
-	trigger.cancel(ctx)
+	trigger.cancel(ctx, user)
 	return &pb.Response{Message: "Disabling trigger"}, nil
 }
 
 func (s *server) CancelSetSell(ctx context.Context, req *pb.Command) (*pb.Response, error) {
+	user := getUser(userId)
 	trigger, err := getSellTrigger(ctx, req.UserId, req.Symbol)
 	if err != nil {
 		return nil, errors.New("Set sell not found")
 	}
-	trigger.cancel(ctx)
+	trigger.cancel(ctx, user)
 	return &pb.Response{Message: "Disabling trigger"}, nil
 }
 

@@ -23,9 +23,9 @@ func getBuyTrigger(ctx context.Context, userID, symbol string) (*BuyTrigger, err
 	return buyTrigger, nil
 }
 
-func (trigger *BuyTrigger) updateCashAmount(ctx context.Context, amount float32) error {
+func (trigger *BuyTrigger) updateCashAmount(ctx context.Context, amount float32, user *User) error {
 	buy := getBuy(ctx, trigger.BuyId)
-	_, err := buy.updateCashAmount(ctx, amount)
+	err := buy.updateCashAmount(ctx, amount, user)
 	if err != nil {
 		return err
 	}
@@ -41,9 +41,9 @@ func (trigger *BuyTrigger) updatePrice(ctx context.Context, price float32) {
 	db.Exec("UPDATE Buy_Trigger set Active=true where UserId=? and BuyId=?", trigger.UserId, trigger.BuyId)
 }
 
-func (trigger *BuyTrigger) cancel(ctx context.Context) {
+func (trigger *BuyTrigger) cancel(ctx context.Context, user *User) {
 	buy := getBuy(ctx, trigger.BuyId)
-	buy.cancel(ctx)
+	buy.cancel(ctx, user)
 	db.Exec("DELETE From Buy_Trigger UserId=? and BuyId=?", trigger.UserId, trigger.BuyId)
 	db.Exec("DELETE From Buy where Id=?", trigger.BuyId)
 }
@@ -76,7 +76,7 @@ func checkBuyTriggers() {
 		stock, _ := quote(context.Background(), buy.UserId, buy.StockSymbol)
 		if buy.Price >= stock.Price {
 			buy.updatePrice(stock.Price)
-			buy.commit(context.Background(), true)
+			buy.commit(context.Background(), getUser(userId), true)
 			db.Exec("Delete From Buy_Trigger where BuyId=? and UserId=?", buy.Id, buy.UserId)
 		}
 	}

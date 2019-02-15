@@ -17,13 +17,13 @@ func (buy *Buy) toString() string {
 	return string(bytes)
 }
 
-func createBuy(ctx context.Context, intendedCashAmount float32, symbol, userID string) (*Buy, error) {
-	stock, err := quote(ctx, userID, symbol)
+func createBuy(ctx context.Context, intendedCashAmount float32, symbol string, user *User) (*Buy, error) {
+	stock, err := quote(ctx, user.Id, symbol)
 	if err != nil {
 		return nil, err
 	}
-	buy := &Buy{Price: stock.Price, StockSymbol: symbol, UserId: userID}
-	user, err := buy.updateCashAmount(ctx, intendedCashAmount)
+	buy := &Buy{Price: stock.Price, StockSymbol: symbol, UserId: user.Id}
+	err = buy.updateCashAmount(ctx, intendedCashAmount, user)
 	if err != nil {
 		return nil, err
 	}
@@ -34,16 +34,15 @@ func createBuy(ctx context.Context, intendedCashAmount float32, symbol, userID s
 	return buy, err
 }
 
-func (buy *Buy) updateCashAmount(ctx context.Context, amount float32) (*User, error) {
-	user := getUser(buy.UserId)
+func (buy *Buy) updateCashAmount(ctx context.Context, amount float32, user *User) error {
 	if amount > user.Balance {
 		msg := fmt.Sprintf("Not enough balance, have %f need %f", user.Balance, amount)
-		return nil, errors.New(msg)
+		return errors.New(msg)
 	}
 	updatedAmount := buy.IntendedCashAmount - amount
-	user.updateUserBalance(ctx, updatedAmount)
+	user.updateUserBalance(ctx, updatedAmount, false)
 	buy.IntendedCashAmount = float32(math.Abs(float64(updatedAmount)))
-	return user, nil
+	return nil
 }
 
 func (buy *Buy) updatePrice(stockPrice float32) {
@@ -52,21 +51,25 @@ func (buy *Buy) updatePrice(stockPrice float32) {
 	buy.ActualCashAmount = float32(buy.StockBoughtAmount) * buy.Price
 }
 
-func (buy *Buy) commit(ctx context.Context, update bool) (*UserStock, error) {
+func (buy *Buy) commit(ctx context.Context, user *User, update bool) (*UserStock, error) {
 	var err error
 	if update {
 		err = buy.updateBuy(ctx)
 	} else {
 		_, err = buy.insertBuy(ctx)
 	}
-	userStock := getOrCreateUserStock(ctx, buy.UserId, buy.StockSymbol)
-	userStock.updateStockAmount(ctx, buy.StockBoughtAmount)
+	user.updateUserBalance(ctx, buy.IntendedCashAmount-buy.ActualCashAmount, true)
+	userStock := getOrCreateUserStock(ctx, buy.UserId, buy.StockSymbol, user)
+	userStock.updateStockAmount(ctx, buy.StockBoughtAmount, user)
+	err = user.updateStockBalance(ctx, buy.StockSymbol)
+	if err != nil {
+		return nil, err
+	}
 	return userStock, err
 }
 
-func (buy *Buy) cancel(ctx context.Context) {
-	user := getUser(buy.UserId)
-	user.updateUserBalance(ctx, buy.IntendedCashAmount)
+func (buy *Buy) cancel(ctx context.Context, user *User) {
+	user.updateUserBalance(ctx, buy.IntendedCashAmount, false)
 }
 
 func (buy *Buy) updateBuy(ctx context.Context) error {

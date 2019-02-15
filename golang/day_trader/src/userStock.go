@@ -1,6 +1,8 @@
 package main
 
-import "context"
+import (
+	"context"
+)
 
 func (userStock *UserStock) toString() string {
 	if userStock == nil {
@@ -10,18 +12,19 @@ func (userStock *UserStock) toString() string {
 	return string(bytes)
 }
 
-func getOrCreateUserStock(ctx context.Context, userID, symbol string) *UserStock {
-	userStock := &UserStock{UserId: userID, StockSymbol: symbol}
-	err := db.QueryRow("SELECT Amount from User_Stock where UserId=? and StockSymbol=?", userID, symbol).Scan(&userStock.Amount)
-	if err != nil {
-		db.Exec("insert into User_Stock(UserId,StockSymbol) values(?,?)", userID, symbol)
-		userStock.Amount = 0
+func getOrCreateUserStock(ctx context.Context, userID, symbol string, user *User) *UserStock {
+	if amount, ok := user.StockMap[symbol]; ok {
+		return &UserStock{UserId: userID, StockSymbol: symbol, Amount: amount}
 	}
+	amount := 0
+	db.QueryRow("Select Amount from User_Stock where UserId=?", user.Id).Scan(&amount)
+	userStock := &UserStock{UserId: userID, StockSymbol: symbol, Amount: amount}
+	user.setCache()
 	return userStock
 }
 
-func (userStock *UserStock) updateStockAmount(ctx context.Context, amount int) error {
+func (userStock *UserStock) updateStockAmount(ctx context.Context, amount int, user *User) {
 	userStock.Amount += amount
-	_, err := db.Exec("update User_Stock set Amount=? where UserId=? and StockSymbol=?", userStock.Amount, userStock.UserId, userStock.StockSymbol)
-	return err
+	user.StockMap[userStock.StockSymbol] = userStock.Amount
+	user.setCache()
 }

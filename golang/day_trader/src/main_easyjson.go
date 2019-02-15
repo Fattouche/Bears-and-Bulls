@@ -258,6 +258,26 @@ func easyjson89aae3efDecodeDayTrader2(in *jlexer.Lexer, out *User) {
 				}
 				in.Delim(']')
 			}
+		case "StockMap":
+			if in.IsNull() {
+				in.Skip()
+			} else {
+				in.Delim('{')
+				if !in.IsDelim('}') {
+					out.StockMap = make(map[string]int)
+				} else {
+					out.StockMap = nil
+				}
+				for !in.IsDelim('}') {
+					key := string(in.String())
+					in.WantColon()
+					var v3 int
+					v3 = int(in.Int())
+					(out.StockMap)[key] = v3
+					in.WantComma()
+				}
+				in.Delim('}')
+			}
 		default:
 			in.SkipRecursive()
 		}
@@ -314,14 +334,14 @@ func easyjson89aae3efEncodeDayTrader2(out *jwriter.Writer, in User) {
 			out.RawString("null")
 		} else {
 			out.RawByte('[')
-			for v3, v4 := range in.BuyStack {
-				if v3 > 0 {
+			for v4, v5 := range in.BuyStack {
+				if v4 > 0 {
 					out.RawByte(',')
 				}
-				if v4 == nil {
+				if v5 == nil {
 					out.RawString("null")
 				} else {
-					(*v4).MarshalEasyJSON(out)
+					(*v5).MarshalEasyJSON(out)
 				}
 			}
 			out.RawByte(']')
@@ -339,17 +359,43 @@ func easyjson89aae3efEncodeDayTrader2(out *jwriter.Writer, in User) {
 			out.RawString("null")
 		} else {
 			out.RawByte('[')
-			for v5, v6 := range in.SellStack {
-				if v5 > 0 {
+			for v6, v7 := range in.SellStack {
+				if v6 > 0 {
 					out.RawByte(',')
 				}
-				if v6 == nil {
+				if v7 == nil {
 					out.RawString("null")
 				} else {
-					(*v6).MarshalEasyJSON(out)
+					(*v7).MarshalEasyJSON(out)
 				}
 			}
 			out.RawByte(']')
+		}
+	}
+	{
+		const prefix string = ",\"StockMap\":"
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
+		if in.StockMap == nil && (out.Flags&jwriter.NilMapAsEmpty) == 0 {
+			out.RawString(`null`)
+		} else {
+			out.RawByte('{')
+			v8First := true
+			for v8Name, v8Value := range in.StockMap {
+				if v8First {
+					v8First = false
+				} else {
+					out.RawByte(',')
+				}
+				out.String(string(v8Name))
+				out.RawByte(':')
+				out.Int(int(v8Value))
+			}
+			out.RawByte('}')
 		}
 	}
 	out.RawByte('}')

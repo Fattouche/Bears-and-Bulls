@@ -16,26 +16,26 @@ func (sell *Sell) toString() string {
 	return string(bytes)
 }
 
-func createSell(ctx context.Context, intendedCashAmount float32, symbol, userID string) (*Sell, error) {
-	stock, err := quote(ctx, userID, symbol)
+func createSell(ctx context.Context, intendedCashAmount float32, symbol string, user *User) (*Sell, error) {
+	stock, err := quote(ctx, user.Id, symbol)
 	if err != nil {
 		return nil, err
 	}
-	sell := &Sell{Price: stock.Price, StockSymbol: symbol, UserId: userID}
-	err = sell.updateCashAmount(ctx, intendedCashAmount)
+	sell := &Sell{Price: stock.Price, StockSymbol: symbol, UserId: user.Id}
+	err = sell.updateCashAmount(ctx, intendedCashAmount, user)
 	if err != nil {
 		return nil, err
 	}
-	err = sell.updatePrice(ctx, stock.Price)
+	err = sell.updatePrice(ctx, stock.Price, user)
 	if err != nil {
 		return nil, err
 	}
 	return sell, err
 }
 
-func (sell *Sell) updateCashAmount(ctx context.Context, amount float32) error {
+func (sell *Sell) updateCashAmount(ctx context.Context, amount float32, user *User) error {
 	stock, _ := quote(ctx, sell.UserId, sell.StockSymbol)
-	userStock := getOrCreateUserStock(ctx, sell.UserId, sell.StockSymbol)
+	userStock := getOrCreateUserStock(ctx, sell.UserId, sell.StockSymbol, user)
 	stockSoldAmount := int(math.Floor(float64(amount / stock.Price)))
 	if stockSoldAmount > userStock.Amount {
 		return fmt.Errorf("Not enough stock, have %d need %d", userStock.Amount, stockSoldAmount)
@@ -44,21 +44,24 @@ func (sell *Sell) updateCashAmount(ctx context.Context, amount float32) error {
 	return nil
 }
 
-func (sell *Sell) updatePrice(ctx context.Context, stockPrice float32) error {
-	userStock := getOrCreateUserStock(ctx, sell.UserId, sell.StockSymbol)
+func (sell *Sell) updatePrice(ctx context.Context, stockPrice float32, user *User) error {
+	userStock := getOrCreateUserStock(ctx, sell.UserId, sell.StockSymbol, user)
 	updateSoldAmount := int(math.Min(math.Floor(float64(sell.IntendedCashAmount/stockPrice)), float64(userStock.Amount+sell.StockSoldAmount)))
 	updated := updateSoldAmount - sell.StockSoldAmount
 	sell.StockSoldAmount += updated
 	sell.ActualCashAmount = float32(sell.StockSoldAmount) * stockPrice
 	sell.Timestamp = time.Now()
 	sell.Price = stockPrice
-	userStock.updateStockAmount(ctx, updated*-1)
+	userStock.updateStockAmount(ctx, updated*-1, user)
 	return nil
 }
 
-func (sell *Sell) commit(ctx context.Context, update bool) (err error) {
-	user := getUser(sell.UserId)
-	user.updateUserBalance(ctx, sell.ActualCashAmount)
+func (sell *Sell) commit(ctx context.Context, update bool, user *User) (err error) {
+	err = user.updateStockBalance(ctx, sell.StockSymbol)
+	if err != nil {
+		return err
+	}
+	user.updateUserBalance(ctx, sell.ActualCashAmount, true)
 	if update {
 		err = sell.updateSell(ctx)
 	} else {
@@ -67,9 +70,9 @@ func (sell *Sell) commit(ctx context.Context, update bool) (err error) {
 	return
 }
 
-func (sell *Sell) cancel(ctx context.Context) {
-	userStock := getOrCreateUserStock(ctx, sell.UserId, sell.StockSymbol)
-	userStock.updateStockAmount(ctx, sell.StockSoldAmount)
+func (sell *Sell) cancel(ctx context.Context, user *User) {
+	userStock := getOrCreateUserStock(ctx, sell.UserId, sell.StockSymbol, user)
+	userStock.updateStockAmount(ctx, sell.StockSoldAmount, user)
 }
 
 func (sell *Sell) updateSell(ctx context.Context) error {

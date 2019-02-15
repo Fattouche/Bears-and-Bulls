@@ -109,6 +109,10 @@ func (s *server) LogDebugEvent(ctx context.Context, req *pb.Log) (*pb.Response, 
 	return &pb.Response{Message: strconv.Itoa(baseLogID)}, err
 }
 
+func (s *server) DumpLogs(ctx context.Context, req *pb.Command) (*pb.Response, error) {
+	return &pb.Response{Message: "yee dump"}, nil
+}
+
 func startGRPCServer() {
 	lis, err := net.Listen("tcp", grpcPort)
 	if err != nil {

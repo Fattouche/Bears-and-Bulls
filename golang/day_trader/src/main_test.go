@@ -48,10 +48,16 @@ func TestAdd(t *testing.T) {
 }
 
 func TestBuy(t *testing.T) {
-	s.Buy(context.Background(), genGrpcRequest("BUY"))
-	user, _ := getCacheUser(userId)
+	_, err := s.Buy(context.Background(), genGrpcRequest("BUY"))
+	if err != nil {
+		t.Error("TestBuy got unexpected error: ", err)
+	}
+	user := getUser(userId)
 	if len(user.BuyStack) == 0 {
 		t.Errorf("TestBuy expected Buy stack to have length of %d but had %d", 1, 0)
+	}
+	if user.Balance != 0 {
+		t.Errorf("TestBuy expected balance of %v got %v", 0, user.Balance)
 	}
 	buy := user.BuyStack[0]
 	if buy.Price != quotePrice {
@@ -66,16 +72,14 @@ func TestBuy(t *testing.T) {
 	if buy.ActualCashAmount != float32(amount/quotePrice)*quotePrice {
 		t.Errorf("TestBuy expected actual cash amount amount of %v got %v", float32(amount/quotePrice)*quotePrice, buy.ActualCashAmount)
 	}
-	var balance float32
-	db.QueryRow("SELECT Balance from User where Id=?", userId).Scan(&balance)
-	if balance != 0 {
-		t.Errorf("TestBuy expected balance of %v got %v", 0, balance)
-	}
 }
 
 func TestCommitBuy(t *testing.T) {
-	s.CommitBuy(context.Background(), genGrpcRequest("COMMIT_BUY"))
-	user, _ := getCacheUser(userId)
+	_, err := s.CommitBuy(context.Background(), genGrpcRequest("COMMIT_BUY"))
+	if err != nil {
+		t.Error("TestCommitBuy got unexpected error: ", err)
+	}
+	user := getUser(userId)
 	if len(user.BuyStack) == 1 {
 		t.Errorf("TestCommitBuy expected Buy stack to have length of %d but had %d", 0, 1)
 	}
@@ -93,10 +97,17 @@ func TestCommitBuy(t *testing.T) {
 }
 
 func TestSell(t *testing.T) {
-	s.Sell(context.Background(), genGrpcRequest("SELL"))
-	user, _ := getCacheUser(userId)
+	_, err := s.Sell(context.Background(), genGrpcRequest("SELL"))
+	if err != nil {
+		t.Error("TestSell got unexpected error: ", err)
+	}
+	user := getUser(userId)
 	if len(user.SellStack) == 0 {
 		t.Errorf("TestSell expected Sell stack to have length of %d but had %d", 1, 0)
+	}
+	stockAmount := user.StockMap[symbol]
+	if stockAmount != 0 {
+		t.Errorf("TestSell expected stock amount of %v got %v", 0, stockAmount)
 	}
 	sell := user.SellStack[0]
 	if sell.Price != quotePrice {
@@ -111,17 +122,14 @@ func TestSell(t *testing.T) {
 	if sell.ActualCashAmount != float32(amount/quotePrice)*quotePrice {
 		t.Errorf("TestSell expected actual cash amount amount of %v got %v", float32(amount/quotePrice)*quotePrice, sell.ActualCashAmount)
 	}
-
-	var stockAmount int
-	db.QueryRow("SELECT Amount from User_Stock where UserId=? and StockSymbol=?", userId, symbol).Scan(&stockAmount)
-	if stockAmount != 0 {
-		t.Errorf("TestSell expected stock amount of %v got %v", 0, stockAmount)
-	}
 }
 
 func TestCommitSell(t *testing.T) {
-	s.CommitSell(context.Background(), genGrpcRequest("COMMIT_SELL"))
-	user, _ := getCacheUser(userId)
+	_, err := s.CommitSell(context.Background(), genGrpcRequest("COMMIT_SELL"))
+	if err != nil {
+		t.Error("TestCommitSell got unexpected error: ", err)
+	}
+	user := getUser(userId)
 	if len(user.BuyStack) == 1 {
 		t.Errorf("TestCommitSell expected Sell stack to have length of %d but had %d", 0, 1)
 	}
@@ -139,37 +147,45 @@ func TestCommitSell(t *testing.T) {
 }
 
 func TestCancelBuy(t *testing.T) {
-	s.Buy(context.Background(), genGrpcRequest("BUY"))
-	user, _ := getCacheUser(userId)
+	_, err := s.Buy(context.Background(), genGrpcRequest("BUY"))
+	if err != nil {
+		t.Error("TestCancelBuy got unexpected error: ", err)
+	}
+	user := getUser(userId)
 	if len(user.BuyStack) != 1 {
 		t.Errorf("TestCancelBuy expected Buy stack to have length of %d but had %d", 1, len(user.BuyStack))
 	}
-	var balance float32
-	db.QueryRow("SELECT Balance from User where Id=?", userId).Scan(&balance)
-	if balance != 0 {
-		t.Errorf("TestCancelBuy expected balance of %v got %v", 0, balance)
+	if user.Balance != 0 {
+		t.Errorf("TestCancelBuy expected balance of %v got %v", 0, user.Balance)
 	}
 	s.CancelBuy(context.Background(), genGrpcRequest("CANCEL_BUY"))
 	user, _ = getCacheUser(userId)
 	if len(user.BuyStack) != 0 {
 		t.Errorf("TestCancelBuy expected Buy stack to have length of %d but had %d", 0, len(user.BuyStack))
 	}
-	db.QueryRow("SELECT Balance from User where Id=?", userId).Scan(&balance)
-	if balance != amount {
-		t.Errorf("TestCancelBuy expected balance of %v got %v", amount, balance)
+	if user.Balance != amount {
+		t.Errorf("TestCancelBuy expected balance of %v got %v", amount, user.Balance)
 	}
 }
 
 func TestCancelSell(t *testing.T) {
-	s.Buy(context.Background(), genGrpcRequest("BUY"))
-	s.CommitBuy(context.Background(), genGrpcRequest("COMMIT_BUY"))
-	s.Sell(context.Background(), genGrpcRequest("SELL"))
-	user, _ := getCacheUser(userId)
+	_, err := s.Buy(context.Background(), genGrpcRequest("BUY"))
+	if err != nil {
+		t.Error("Buy in TestCancelSell got unexpected error: ", err)
+	}
+	_, err = s.CommitBuy(context.Background(), genGrpcRequest("COMMIT_BUY"))
+	if err != nil {
+		t.Error("CommitBuy in TestCancelSell got unexpected error: ", err)
+	}
+	_, err = s.Sell(context.Background(), genGrpcRequest("SELL"))
+	if err != nil {
+		t.Error("Sell in TestCancelSell got unexpected error: ", err)
+	}
+	user := getUser(userId)
 	if len(user.SellStack) == 0 {
 		t.Errorf("TestCancelSell expected Sell stack to have length of %d but had %d", 1, 0)
 	}
-	var stockAmount int
-	db.QueryRow("SELECT Amount from User_Stock where UserId=? and StockSymbol=?", userId, symbol).Scan(&stockAmount)
+	stockAmount := user.StockMap[symbol]
 	if stockAmount != 0 {
 		t.Errorf("TestCancelSell expected stock amount of %v got %v", 0, stockAmount)
 	}
@@ -188,7 +204,10 @@ func TestCancelSell(t *testing.T) {
 }
 
 func TestSetBuyAmount(t *testing.T) {
-	s.SetBuyAmount(context.Background(), genGrpcRequest("SET_BUY_AMOUNT"))
+	_, err := s.SetBuyAmount(context.Background(), genGrpcRequest("SET_BUY_AMOUNT"))
+	if err != nil {
+		t.Error("SetBuyAmount got unexpected error: ", err)
+	}
 	var buyId int
 	var cashAmount float32
 	db.QueryRow("SELECT Id,IntendedCashAmount from Buy where Id=(Select max(Id) from Buy)").Scan(&buyId, &cashAmount)
@@ -213,7 +232,10 @@ func TestSetBuyTrigger(t *testing.T) {
 
 	req := genGrpcRequest("SET_BUY_TRIGGER")
 	req.Amount = buyPrice
-	s.SetBuyTrigger(context.Background(), req)
+	_, err := s.SetBuyTrigger(context.Background(), req)
+	if err != nil {
+		t.Error("SetBuyTrigger got unexpected error: ", err)
+	}
 	db.QueryRow("SELECT Id,IntendedCashAmount,Price,StockBoughtAmount from Buy where Id=(Select max(Id) from Buy)").Scan(&buyId, &cashAmount, &price, &stockBoughtAmount)
 	if cashAmount != amount {
 		t.Errorf("TestSetBuyTrigger expected intendedCashAmount to be %f but was %f", amount, cashAmount)
@@ -231,8 +253,11 @@ func TestSetBuyTrigger(t *testing.T) {
 }
 
 func TestCancelSetBuy(t *testing.T) {
-	s.CancelSetBuy(context.Background(), genGrpcRequest("CANCEL_SET_BUY"))
-	_, err := db.Query("SELECT * from Buy_Trigger where UserId=?", userId)
+	_, err := s.CancelSetBuy(context.Background(), genGrpcRequest("CANCEL_SET_BUY"))
+	if err != nil {
+		t.Error("CancelSetBuy got unexpected error: ", err)
+	}
+	_, err = db.Query("SELECT * from Buy_Trigger where UserId=?", userId)
 	if err != nil {
 		t.Error("TestCancelSetBuy Expected no buy trigger but one was returned")
 	}
@@ -244,9 +269,18 @@ func TestCancelSetBuy(t *testing.T) {
 }
 
 func TestSetSellAmount(t *testing.T) {
-	s.Buy(context.Background(), genGrpcRequest("BUY"))
+	_, err := s.Buy(context.Background(), genGrpcRequest("BUY"))
+	if err != nil {
+		t.Error("Buy in TestSetSellAmount got unexpected error: ", err)
+	}
 	s.CommitBuy(context.Background(), genGrpcRequest("COMMIT_BUY"))
+	if err != nil {
+		t.Error("CommitBuy in TestSetSellAmount got unexpected error: ", err)
+	}
 	s.SetSellAmount(context.Background(), genGrpcRequest("SET_SELL_AMOUNT"))
+	if err != nil {
+		t.Error("SetSellAmount in TestSetSellAmount got unexpected error: ", err)
+	}
 	var sellId int
 	var cashAmount float32
 	db.QueryRow("SELECT Id,IntendedCashAmount from Sell where Id=(Select max(Id) from Sell)").Scan(&sellId, &cashAmount)
@@ -271,7 +305,10 @@ func TestSetSellTrigger(t *testing.T) {
 
 	req := genGrpcRequest("SET_SELL_TRIGGER")
 	req.Amount = sellPrice
-	s.SetSellTrigger(context.Background(), req)
+	_, err := s.SetSellTrigger(context.Background(), req)
+	if err != nil {
+		t.Error("SetSellTrigger got unexpected error: ", err)
+	}
 	db.QueryRow("SELECT Id,IntendedCashAmount,Price,StockSoldAmount from Sell where Id=(Select max(Id) from Sell)").Scan(&sellId, &cashAmount, &price, &stockSoldAmount)
 	if cashAmount != amount {
 		t.Errorf("TestSetSellTrigger expected intendedCashAmount to be %f but was %f", amount, cashAmount)
@@ -289,8 +326,11 @@ func TestSetSellTrigger(t *testing.T) {
 }
 
 func TestCancelSetSell(t *testing.T) {
-	s.CancelSetSell(context.Background(), genGrpcRequest("CANCEL_SET_SELL"))
-	_, err := db.Query("SELECT * from Sell_Trigger where UserId=?", userId)
+	_, err := s.CancelSetSell(context.Background(), genGrpcRequest("CANCEL_SET_SELL"))
+	if err != nil {
+		t.Error("CancelSetSell got unexpected error: ", err)
+	}
+	_, err = db.Query("SELECT * from Sell_Trigger where UserId=?", userId)
 	if err != nil {
 		t.Error("TestCancelSetSell Expected no sell trigger but one was returned")
 	}
@@ -303,7 +343,10 @@ func TestCancelSetSell(t *testing.T) {
 
 func TestCheckSellTrigger(t *testing.T) {
 	sellPrice := float32(4.0)
-	s.SetSellAmount(context.Background(), genGrpcRequest("SET_SELL_AMOUNT"))
+	_, err := s.SetSellAmount(context.Background(), genGrpcRequest("SET_SELL_AMOUNT"))
+	if err != nil {
+		t.Error("SetSellAmount got unexpected error: ", err)
+	}
 	req := genGrpcRequest("SET_SELL_TRIGGER")
 	req.Amount = sellPrice
 	s.SetSellTrigger(context.Background(), req)
@@ -314,7 +357,7 @@ func TestCheckSellTrigger(t *testing.T) {
 	if balance != amount {
 		t.Errorf("TestCheckSellTrigger expected balance of %v got %v", amount, balance)
 	}
-	_, err := db.Query("SELECT * from Buy_Trigger where UserId=?", userId)
+	_, err = db.Query("SELECT * from Buy_Trigger where UserId=?", userId)
 	if err != nil {
 		t.Error("TestCheckSellTrigger Expected no trigger but one was returned")
 	}
@@ -323,7 +366,10 @@ func TestCheckSellTrigger(t *testing.T) {
 func TestCheckBuyTrigger(t *testing.T) {
 	buyPrice := float32(6.0)
 	var stockAmount int
-	s.SetBuyAmount(context.Background(), genGrpcRequest("SET_BUY_AMOUNT"))
+	_, err := s.SetBuyAmount(context.Background(), genGrpcRequest("SET_BUY_AMOUNT"))
+	if err != nil {
+		t.Error("SetBuyAmount got unexpected error: ", err)
+	}
 	req := genGrpcRequest("SET_BUY_TRIGGER")
 	req.Amount = buyPrice
 	s.SetBuyTrigger(context.Background(), req)
@@ -332,7 +378,7 @@ func TestCheckBuyTrigger(t *testing.T) {
 	if stockAmount != int(amount/quotePrice) {
 		t.Errorf("TestCheckBuyTrigger expected stock amount of %v got %v", int(amount/buyPrice), stockAmount)
 	}
-	_, err := db.Query("SELECT * from Buy_Trigger where UserId=?", userId)
+	_, err = db.Query("SELECT * from Buy_Trigger where UserId=?", userId)
 	if err != nil {
 		t.Error("TestCheckBuyTrigger Expected no trigger but one was returned")
 	}
