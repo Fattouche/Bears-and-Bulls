@@ -56,7 +56,8 @@ func (buy *Buy) commit(ctx context.Context, user *User, update bool) (*UserStock
 	if update {
 		err = buy.updateBuy(ctx)
 	} else {
-		_, err = buy.insertBuy(ctx)
+		//log here instead
+		//_, err = buy.insertBuy(ctx)
 	}
 	user.updateUserBalance(ctx, buy.IntendedCashAmount-buy.ActualCashAmount, true)
 	userStock := getOrCreateUserStock(ctx, buy.UserId, buy.StockSymbol, user)

@@ -65,7 +65,8 @@ func (sell *Sell) commit(ctx context.Context, update bool, user *User) (err erro
 	if update {
 		err = sell.updateSell(ctx)
 	} else {
-		_, err = sell.insertSell(ctx)
+		//log here instead
+		//_, err = sell.insertSell(ctx)
 	}
 	return
 }
