@@ -18,7 +18,12 @@ func (user *User) popFromBuyStack() *Buy {
 		return nil
 	}
 	buy := user.BuyStack[len(user.BuyStack)-1]
-	user.BuyStack = user.BuyStack[:len(user.BuyStack)-1]
+	if buy.isExpired() {
+		user.BuyStack = make([]*Buy, 0)
+		buy = nil
+	} else {
+		user.BuyStack = user.BuyStack[:len(user.BuyStack)-1]
+	}
 	user.setCache()
 	return buy
 }
@@ -28,7 +33,12 @@ func (user *User) popFromSellStack() *Sell {
 		return nil
 	}
 	sell := user.SellStack[len(user.SellStack)-1]
-	user.SellStack = user.SellStack[:len(user.SellStack)-1]
+	if sell.isExpired() {
+		user.SellStack = make([]*Sell, 0)
+		sell = nil
+	} else {
+		user.SellStack = user.SellStack[:len(user.SellStack)-1]
+	}
 	user.setCache()
 	return sell
 }

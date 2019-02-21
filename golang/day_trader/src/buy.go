@@ -98,3 +98,11 @@ func getBuy(ctx context.Context, id int64) *Buy {
 	}
 	return buy
 }
+
+func (buy *Buy) isExpired() bool {
+	duration := time.Since(buy.Timestamp)
+	if duration > time.Second*60 {
+		return true
+	}
+	return false
+}
